@@ -275,6 +275,27 @@ sh36730x_status_t sh36730x_vadc_set_scan_period(
         val_16);
 }
 
+sh36730x_status_t sh36730x_vadc_get_scan_period(
+    sh36730x_t *device,
+    sh36730x_vadc_scan_period_t *scan_period)
+{
+    if (device == NULL || !device->initialized || scan_period == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF3, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf3 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *scan_period = (sh36730x_vadc_scan_period_t)SH36730X_READ_FIELD(
+        sconf3, SH36730X_SCONF3_SCAN_C_MASK, SH36730X_SCONF3_SCAN_C_POS);
+
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_vadc_set_mode(
     sh36730x_t *device,
     sh36730x_vadc_mode_t mode)
@@ -298,6 +319,27 @@ sh36730x_status_t sh36730x_vadc_set_mode(
         SH36730X_REG_SCONF3,
         mask_16,
         val_16);
+}
+
+sh36730x_status_t sh36730x_vadc_get_mode(
+    sh36730x_t *device,
+    sh36730x_vadc_mode_t *mode)
+{
+    if (device == NULL || !device->initialized || mode == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF3, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf3 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *mode = (sh36730x_vadc_mode_t)SH36730X_READ_FIELD(
+        sconf3, SH36730X_SCONF3_VADC_C_MASK, SH36730X_SCONF3_VADC_C_POS);
+
+    return SH36730X_OK;
 }
 
 sh36730x_status_t sh36730x_get_cell_voltage(
@@ -519,6 +561,27 @@ sh36730x_status_t sh36730x_cadc_set_rsns(
         val_16);
 }
 
+sh36730x_status_t sh36730x_cadc_get_rsns(
+    sh36730x_t *device,
+    sh36730x_cadc_rsns_t *cadc_rsns)
+{
+    if (device == NULL || !device->initialized || cadc_rsns == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF6, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf6 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *cadc_rsns = (sh36730x_cadc_rsns_t)SH36730X_READ_FIELD(
+        sconf6, SH36730X_SCONF6_RSNS_MASK, SH36730X_SCONF6_RSNS_POS);
+
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_cadc_set_cbti_c(
     sh36730x_t *device,
     sh36730x_cbti_c_t cbti_c)
@@ -544,6 +607,27 @@ sh36730x_status_t sh36730x_cadc_set_cbti_c(
         val_16);
 }
 
+sh36730x_status_t sh36730x_cadc_get_cbti_c(
+    sh36730x_t *device,
+    sh36730x_cbti_c_t *cbti_c)
+{
+    if (device == NULL || !device->initialized || cbti_c == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF3, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf3 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *cbti_c = (sh36730x_cbti_c_t)SH36730X_READ_FIELD(
+        sconf3, SH36730X_SCONF3_CBIT_C_MASK, SH36730X_SCONF3_CBIT_C_POS);
+
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_cadc_set_mode(
     sh36730x_t *device,
     sh36730x_cadc_mode_t cadc_mode)
@@ -567,6 +651,27 @@ sh36730x_status_t sh36730x_cadc_set_mode(
         SH36730X_REG_SCONF3,
         mask_16,
         val_16);
+}
+
+sh36730x_status_t sh36730x_cadc_get_mode(
+    sh36730x_t *device,
+    sh36730x_cadc_mode_t *cadc_mode)
+{
+    if (device == NULL || !device->initialized || cadc_mode == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF3, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf3 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *cadc_mode = (sh36730x_cadc_mode_t)SH36730X_READ_FIELD(
+        sconf3, SH36730X_SCONF3_CADC_M_MASK, SH36730X_SCONF3_CADC_M_POS);
+
+    return SH36730X_OK;
 }
 
 sh36730x_status_t sh36730x_get_current(
@@ -755,6 +860,28 @@ sh36730x_status_t sh36730x_set_ov_voltage(
     return status;
 }
 
+sh36730x_status_t sh36730x_get_ov_voltage(
+    sh36730x_t *device,
+    float *voltage)
+{
+    if (device == NULL || !device->initialized || voltage == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF8, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf8 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    uint8_t sconf9 = SH36730X_EXTRACT_LOW_BYTE_8(reg_val);
+    uint16_t ovd_raw = SH36730X_OVD_EXTRACT_10BIT(sconf8, sconf9);
+
+    *voltage = (float)SH36730X_OVD_TO_VOLTAGE_MV(ovd_raw);
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_set_ov_delay(
     sh36730x_t *device,
     sh36730x_ov_delay_t delay)
@@ -781,6 +908,27 @@ sh36730x_status_t sh36730x_set_ov_delay(
     return status;
 }
 
+sh36730x_status_t sh36730x_get_ov_delay(
+    sh36730x_t *device,
+    sh36730x_ov_delay_t *delay)
+{
+    if (device == NULL || !device->initialized || delay == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF7, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf7 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *delay = (sh36730x_ov_delay_t)SH36730X_READ_FIELD(
+        sconf7, SH36730X_SCONF7_OVT_MASK, SH36730X_SCONF7_OVT_POS);
+
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_set_resetpf(
     sh36730x_t *device,
     sh36730x_reset_pf_t option)
@@ -801,6 +949,27 @@ sh36730x_status_t sh36730x_set_resetpf(
         val_16);
 
     return status;
+}
+
+sh36730x_status_t sh36730x_get_resetpf(
+    sh36730x_t *device,
+    sh36730x_reset_pf_t *option)
+{
+    if (device == NULL || !device->initialized || option == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF2, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf2 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *option = (sh36730x_reset_pf_t)SH36730X_READ_FIELD(
+        sconf2, SH36730X_SCONF2_RESET_PF_MASK, SH36730X_SCONF2_RESET_PF_POS);
+
+    return SH36730X_OK;
 }
 
 sh36730x_status_t sh36730x_enable_sc(
@@ -847,6 +1016,27 @@ sh36730x_status_t sh36730x_set_scv(
     return status;
 }
 
+sh36730x_status_t sh36730x_get_scv(
+    sh36730x_t *device,
+    sh36730x_scv_t *scv)
+{
+    if (device == NULL || !device->initialized || scv == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF6, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf6 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *scv = (sh36730x_scv_t)SH36730X_READ_FIELD(
+        sconf6, SH36730X_SCONF6_SCV_MASK, SH36730X_SCONF6_SCV_POS);
+
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_set_sct(
     sh36730x_t *device,
     sh36730x_sct_t sct)
@@ -867,6 +1057,27 @@ sh36730x_status_t sh36730x_set_sct(
         val_16);
 
     return status;
+}
+
+sh36730x_status_t sh36730x_get_sct(
+    sh36730x_t *device,
+    sh36730x_sct_t *sct)
+{
+    if (device == NULL || !device->initialized || sct == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF6, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf6 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *sct = (sh36730x_sct_t)SH36730X_READ_FIELD(
+        sconf6, SH36730X_SCONF6_SCT_MASK, SH36730X_SCONF6_SCT_POS);
+
+    return SH36730X_OK;
 }
 
 sh36730x_status_t sh36730x_enable_charger_detection(
@@ -1004,5 +1215,26 @@ sh36730x_status_t sh36730x_set_balancing(
         val_16);
 
     return status;
+}
+
+sh36730x_status_t sh36730x_get_balancing(
+    sh36730x_t *device,
+    uint16_t *mask_10bit)
+{
+    if (device == NULL || !device->initialized || mask_10bit == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF4, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf4 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val); // CB10~CB6 (Bit 4:0)
+    uint8_t sconf5 = SH36730X_EXTRACT_LOW_BYTE_8(reg_val);  // CB5~CB1  (Bit 4:0)
+
+    *mask_10bit = (uint16_t)(((uint16_t)(sconf4 & 0x1FU) << 5U) | (uint16_t)(sconf5 & 0x1FU));
+    return SH36730X_OK;
 }
 

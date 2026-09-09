@@ -310,6 +310,7 @@ sh36730x_status_t sh36730x_vadc_config(
 sh36730x_status_t sh36730x_vadc_enable(
     sh36730x_t *device,
     bool enable);
+
 /**
  * @brief Sets the scan period for the VADC (Voltage Analog-to-Digital Converter) of the SH36730X device.
  * @param device Pointer to the device instance.
@@ -321,6 +322,16 @@ sh36730x_status_t sh36730x_vadc_set_scan_period(
     sh36730x_vadc_scan_period_t scan_period);
 
 /**
+ * @brief Retrieves the scan period of the VADC (SCONF3[2:0]: SCAN_C).
+ * @param device Pointer to the device instance.
+ * @param scan_period Pointer to store the retrieved scan period.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_vadc_get_scan_period(
+    sh36730x_t *device,
+    sh36730x_vadc_scan_period_t *scan_period);
+
+/**
  * @brief Sets the mode for the VADC (Voltage Analog-to-Digital Converter) of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param mode The desired mode for the VADC.
@@ -329,6 +340,16 @@ sh36730x_status_t sh36730x_vadc_set_scan_period(
 sh36730x_status_t sh36730x_vadc_set_mode(
     sh36730x_t *device,
     sh36730x_vadc_mode_t mode);
+
+/**
+ * @brief Retrieves the sampling mode of the VADC (SCONF3[3]: VADC_C).
+ * @param device Pointer to the device instance.
+ * @param mode Pointer to store the retrieved sampling mode.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_vadc_get_mode(
+    sh36730x_t *device,
+    sh36730x_vadc_mode_t *mode);
 
 /**
  * @brief Retrieves the voltage of a specific cell in the SH36730X device.
@@ -413,6 +434,16 @@ sh36730x_status_t sh36730x_cadc_set_rsns(
     sh36730x_cadc_rsns_t cadc_rsns);
 
 /**
+ * @brief Retrieves the RSNS range configuration of the CADC (SCONF6[7:6]: RSNS).
+ * @param device Pointer to the device instance.
+ * @param cadc_rsns Pointer to store the retrieved RSNS range.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_cadc_get_rsns(
+    sh36730x_t *device,
+    sh36730x_cadc_rsns_t *cadc_rsns);
+
+/**
  * @brief Sets the CBTC (SCONF3[5]) configuration of the CADC (Current Analog-to-Digital Converter) in the SH36730X device.
  * @param device Pointer to the device instance.
  * @param cbti_c The CBTC configuration to set for the CADC.
@@ -423,6 +454,16 @@ sh36730x_status_t sh36730x_cadc_set_cbti_c(
     sh36730x_cbti_c_t cbti_c);
 
 /**
+ * @brief Retrieves the resolution configuration of the CADC (SCONF3[5]: CBIT_C).
+ * @param device Pointer to the device instance.
+ * @param cbti_c Pointer to store the retrieved resolution.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_cadc_get_cbti_c(
+    sh36730x_t *device,
+    sh36730x_cbti_c_t *cbti_c);
+
+/**
  * @brief Sets the mode of the CADC (Current Analog-to-Digital Converter) in the SH36730X device.
  * @param device Pointer to the device instance.
  * @param cadc_mode The mode to set for the CADC.
@@ -431,6 +472,16 @@ sh36730x_status_t sh36730x_cadc_set_cbti_c(
 sh36730x_status_t sh36730x_cadc_set_mode(
     sh36730x_t *device,
     sh36730x_cadc_mode_t cadc_mode);
+
+/**
+ * @brief Retrieves the sampling mode of the CADC (SCONF3[6]: CADC_M).
+ * @param device Pointer to the device instance.
+ * @param cadc_mode Pointer to store the retrieved CADC mode.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_cadc_get_mode(
+    sh36730x_t *device,
+    sh36730x_cadc_mode_t *cadc_mode);
 
 /**
  * @brief Retrieves the current measured by the CADC (Current Analog-to-Digital Converter) in the SH36730X device.
@@ -473,6 +524,16 @@ sh36730x_status_t sh36730x_set_ov_voltage(
     float voltage);
 
 /**
+ * @brief Retrieves the hardware over-voltage (OV) threshold voltage (SCONF8/SCONF9).
+ * @param device Pointer to the device instance.
+ * @param voltage Pointer to store the retrieved OV threshold voltage in mV.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_ov_voltage(
+    sh36730x_t *device,
+    float *voltage);
+
+/**
  * @brief Sets the hardware over-voltage (OV) delay of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param delay The OV delay to set.
@@ -483,6 +544,16 @@ sh36730x_status_t sh36730x_set_ov_delay(
     sh36730x_ov_delay_t delay);
 
 /**
+ * @brief Retrieves the hardware over-voltage (OV) delay (SCONF7[6:4]: OVT).
+ * @param device Pointer to the device instance.
+ * @param delay Pointer to store the retrieved OV delay.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_ov_delay(
+    sh36730x_t *device,
+    sh36730x_ov_delay_t *delay);
+
+/**
  * @brief Sets the reset power-fail (RESET/PF) option of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param option The RESET/PF option to set.
@@ -491,6 +562,16 @@ sh36730x_status_t sh36730x_set_ov_delay(
 sh36730x_status_t sh36730x_set_resetpf(
     sh36730x_t *device,
     sh36730x_reset_pf_t option);
+
+/**
+ * @brief Retrieves the reset power-fail (RESET/PF) option (SCONF2[3]: RESET_PF).
+ * @param device Pointer to the device instance.
+ * @param option Pointer to store the retrieved RESET/PF option.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_resetpf(
+    sh36730x_t *device,
+    sh36730x_reset_pf_t *option);
 
 /**
  * @brief Enables or disables the discharge short-circuit protection (SC) of the SH36730X device.
@@ -513,6 +594,16 @@ sh36730x_status_t sh36730x_set_scv(
     sh36730x_scv_t scv);
 
 /**
+ * @brief Retrieves the short-circuit voltage threshold (SCONF6[3:2]: SCV).
+ * @param device Pointer to the device instance.
+ * @param scv Pointer to store the retrieved SCV threshold.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_scv(
+    sh36730x_t *device,
+    sh36730x_scv_t *scv);
+
+/**
  * @brief Sets the discharge short-circuit protection (SCT) threshold of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param sct The SCT threshold to set.
@@ -521,6 +612,16 @@ sh36730x_status_t sh36730x_set_scv(
 sh36730x_status_t sh36730x_set_sct(
     sh36730x_t *device,
     sh36730x_sct_t sct);
+
+/**
+ * @brief Retrieves the short-circuit delay threshold (SCONF6[1:0]: SCT).
+ * @param device Pointer to the device instance.
+ * @param sct Pointer to store the retrieved SCT delay.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_sct(
+    sh36730x_t *device,
+    sh36730x_sct_t *sct);
 
 /**
  * @brief Enables or disables the Charger Detection module of the SH36730X device (SCONF1[0]: CHGR_EN).
@@ -562,9 +663,6 @@ sh36730x_status_t sh36730x_get_load_status(
     sh36730x_t *device,
     bool *connected);
 
-
-
-
 /**
  * @brief Sets the cell balancing configuration of the SH36730X device.
  * @param device Pointer to the device instance.
@@ -577,7 +675,15 @@ sh36730x_status_t sh36730x_set_balancing(
     uint16_t mask_10bit,
     sh36730x_balance_mode_t mode);
 
-
+/**
+ * @brief Retrieves the currently active cell balancing channel mask (SCONF4/SCONF5).
+ * @param device Pointer to the device instance.
+ * @param mask_10bit Pointer to store the 10-bit balance channel mask (Bit 9..0 = Cell 10..1).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_balancing(
+    sh36730x_t *device,
+    uint16_t *mask_10bit);
 
 #ifdef __cplusplus
 }
