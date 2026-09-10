@@ -176,6 +176,44 @@ typedef enum {
     SH36730X_SCT_500US = SH36730X_SCT_DELAY_500US       /**< short-circuit delay 500 us */
 } sh36730x_sct_t;
 
+/**
+ * @brief Charge/discharge state detection threshold options (SCONF7[3:2]: CHS[1:0]).
+ */
+typedef enum {
+    SH36730X_CHS_1_4MV = SH36730X_CHS_THRESHOLD_1_4MV,  /**< 00: 1.4 mV threshold */
+    SH36730X_CHS_3_0MV = SH36730X_CHS_THRESHOLD_3_0MV,  /**< 01: 3.0 mV threshold */
+    SH36730X_CHS_6_0MV = SH36730X_CHS_THRESHOLD_6_0MV,  /**< 10: 6.0 mV threshold */
+    SH36730X_CHS_12_0MV = SH36730X_CHS_THRESHOLD_12_0MV /**< 11: 12.0 mV threshold */
+} sh36730x_chs_threshold_t;
+
+/**
+ * @brief Watchdog timer overflow period options (SCONF7[1:0]: WDTT[1:0]).
+ */
+typedef enum {
+    SH36730X_WDTT_30S = SH36730X_WDTT_TIMEOUT_30S,      /**< 00: 30 s timeout */
+    SH36730X_WDTT_10S = SH36730X_WDTT_TIMEOUT_10S,      /**< 01: 10 s timeout */
+    SH36730X_WDTT_2S = SH36730X_WDTT_TIMEOUT_2S,        /**< 10: 2 s timeout */
+    SH36730X_WDTT_500MS = SH36730X_WDTT_TIMEOUT_500MS   /**< 11: 500 ms timeout */
+} sh36730x_wdtt_period_t;
+
+/**
+ * @brief External MCU reset output pulse width options (SCONF6[5:4]: RST[1:0]).
+ */
+typedef enum {
+    SH36730X_RST_16MS = SH36730X_RST_PULSE_16MS,        /**< 00: 16 ms pulse width */
+    SH36730X_RST_32MS = SH36730X_RST_PULSE_32MS,        /**< 01: 32 ms pulse width */
+    SH36730X_RST_128MS = SH36730X_RST_PULSE_128MS,      /**< 10: 128 ms pulse width */
+    SH36730X_RST_1S = SH36730X_RST_PULSE_1S             /**< 11: 1 s pulse width */
+} sh36730x_rst_pulse_t;
+
+/**
+ * @brief ALARM output signal mode options (SCONF2[2]: ALARM_C).
+ */
+typedef enum {
+    SH36730X_ALARM_PULSE = SH36730X_ALARM_OUTPUT_PULSE, /**< 0: Low level pulse */
+    SH36730X_ALARM_LEVEL = SH36730X_ALARM_OUTPUT_LEVEL  /**< 1: Continuous low level */
+} sh36730x_alarm_mode_t;
+
 typedef enum {
     SH36730X_BALANCE_DISABLE = 0,       /* close all balancing */
     SH36730X_BALANCE_ODD,               /* enable balancing for odd channels only (only affects odd bits in the provided mask) */
@@ -514,6 +552,37 @@ sh36730x_status_t sh36730x_clear_flag1(
     sh36730x_t *device);
 
 /**
+ * @brief Retrieves the System Flag Register 1 (0x00: FLAG1).
+ * @param device Pointer to the device instance.
+ * @param flag1 Pointer to store FLAG1 value.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_flag1(
+    sh36730x_t *device,
+    uint8_t *flag1);
+
+/**
+ * @brief Retrieves the System Flag Register 2 (0x01: FLAG2, Clear-on-Read).
+ * @param device Pointer to the device instance.
+ * @param flag2 Pointer to store FLAG2 value.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_flag2(
+    sh36730x_t *device,
+    uint8_t *flag2);
+
+/**
+ * @brief Checks if a V33 Power-on or Voltage Drop Reset occurred from FLAG2[2].
+ * @note  Reading this flag automatically clears the RST status in hardware.
+ * @param device Pointer to the device instance.
+ * @param reset_occurred Pointer to store reset occurrence flag (true: reset occurred, false: no reset).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_reset_flag(
+    sh36730x_t *device,
+    bool *reset_occurred);
+
+/**
  * @brief Sets the hardware over-voltage (OV) threshold voltage of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param voltage The OV threshold voltage to set.
@@ -664,6 +733,146 @@ sh36730x_status_t sh36730x_get_load_status(
     bool *connected);
 
 /**
+ * @brief Enables or disables CTLD pin priority control for DSG MOSFET (SCONF1[6]: CTLD_EN).
+ * @param device Pointer to the device instance.
+ * @param enable True to enable CTLD function, false to disable.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_enable_ctld(
+    sh36730x_t *device,
+    bool enable);
+
+/**
+ * @brief Sets the charge/discharge state detection threshold (SCONF7[3:2]: CHS[1:0]).
+ * @param device Pointer to the device instance.
+ * @param threshold The CHS threshold to set.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_set_chs_threshold(
+    sh36730x_t *device,
+    sh36730x_chs_threshold_t threshold);
+
+/**
+ * @brief Retrieves the charge/discharge state detection threshold (SCONF7[3:2]: CHS[1:0]).
+ * @param device Pointer to the device instance.
+ * @param threshold Pointer to store the retrieved CHS threshold.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_chs_threshold(
+    sh36730x_t *device,
+    sh36730x_chs_threshold_t *threshold);
+
+/**
+ * @brief Retrieves the real-time charging status from BSTATUS[2] (CHGING).
+ * @param device Pointer to the device instance.
+ * @param is_charging Pointer to store charging status (true: Charging, false: Not charging).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_charging_status(
+    sh36730x_t *device,
+    bool *is_charging);
+
+/**
+ * @brief Retrieves the real-time discharging status from BSTATUS[3] (DSGING).
+ * @param device Pointer to the device instance.
+ * @param is_discharging Pointer to store discharging status (true: Discharging, false: Not discharging).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_discharging_status(
+    sh36730x_t *device,
+    bool *is_discharging);
+
+/**
+ * @brief Sets the interrupt enable mask in INT_EN register (0x03).
+ * @param device Pointer to the device instance.
+ * @param int_mask Bitmask of interrupts to enable (e.g. SH36730X_INT_EN_CD_INT_MASK).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_set_interrupt_enable(
+    sh36730x_t *device,
+    uint8_t int_mask);
+
+/**
+ * @brief Retrieves the interrupt enable mask from INT_EN register (0x03).
+ * @param device Pointer to the device instance.
+ * @param int_mask Pointer to store the retrieved interrupt enable mask.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_interrupt_enable(
+    sh36730x_t *device,
+    uint8_t *int_mask);
+
+/**
+ * @brief Enables or disables the Watchdog Timer (SCONF1[4]: WDT_EN).
+ * @param device Pointer to the device instance.
+ * @param enable True to enable WDT, false to disable.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_enable_wdt(
+    sh36730x_t *device,
+    bool enable);
+
+/**
+ * @brief Sets the Watchdog Timer overflow period (SCONF7[1:0]: WDTT[1:0]).
+ * @param device Pointer to the device instance.
+ * @param period The WDTT timeout period to set.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_set_wdt_period(
+    sh36730x_t *device,
+    sh36730x_wdtt_period_t period);
+
+/**
+ * @brief Retrieves the Watchdog Timer overflow period (SCONF7[1:0]: WDTT[1:0]).
+ * @param device Pointer to the device instance.
+ * @param period Pointer to store the retrieved WDTT timeout period.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_wdt_period(
+    sh36730x_t *device,
+    sh36730x_wdtt_period_t *period);
+
+/**
+ * @brief Sets the external MCU reset pulse width (SCONF6[5:4]: RST[1:0]).
+ * @param device Pointer to the device instance.
+ * @param pulse The RST pulse width to set.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_set_rst_pulse_width(
+    sh36730x_t *device,
+    sh36730x_rst_pulse_t pulse);
+
+/**
+ * @brief Retrieves the external MCU reset pulse width (SCONF6[5:4]: RST[1:0]).
+ * @param device Pointer to the device instance.
+ * @param pulse Pointer to store the retrieved RST pulse width.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_rst_pulse_width(
+    sh36730x_t *device,
+    sh36730x_rst_pulse_t *pulse);
+
+/**
+ * @brief Sets the ALARM pin output signal mode (SCONF2[2]: ALARM_C).
+ * @param device Pointer to the device instance.
+ * @param mode The ALARM output mode (pulse or continuous level).
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_set_alarm_mode(
+    sh36730x_t *device,
+    sh36730x_alarm_mode_t mode);
+
+/**
+ * @brief Retrieves the ALARM pin output signal mode (SCONF2[2]: ALARM_C).
+ * @param device Pointer to the device instance.
+ * @param mode Pointer to store the retrieved ALARM output mode.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_get_alarm_mode(
+    sh36730x_t *device,
+    sh36730x_alarm_mode_t *mode);
+
+/**
  * @brief Sets the cell balancing configuration of the SH36730X device.
  * @param device Pointer to the device instance.
  * @param mask_10bit 10-bit mask indicating which cells to balance.
@@ -684,6 +893,15 @@ sh36730x_status_t sh36730x_set_balancing(
 sh36730x_status_t sh36730x_get_balancing(
     sh36730x_t *device,
     uint16_t *mask_10bit);
+
+/**
+ * @brief Enters Power-Down (low power) mode by writing authorization key 0x33 to SCONF10
+ *        and setting PD_EN in SCONF1 sequentially.
+ * @param device Pointer to the device instance.
+ * @return Status of the operation.
+ */
+sh36730x_status_t sh36730x_enter_power_down(
+    sh36730x_t *device);
 
 #ifdef __cplusplus
 }

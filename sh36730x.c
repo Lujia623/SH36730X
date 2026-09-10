@@ -61,6 +61,15 @@ sh36730x_status_t sh36730x_read_register(
         return SH36730X_ERROR_PARAM;
     }
 
+    /* Validate the register address:
+     * - Must not exceed the last register address.
+     * - ADC data registers (starting from CELL1H) must be accessed with even addresses only.
+     */
+    if (register_address > (SH36730X_REG_END_ADDR - 1U) || 
+       (register_address >= SH36730X_REG_CELL1H && (register_address & 0x01U) != 0U)) {
+        return SH36730X_ERROR_PARAM;
+    }
+
     // Append CRC8 to the register address for communication
     uint8_t rx_buf[3] = {0};
 
@@ -822,6 +831,60 @@ sh36730x_status_t sh36730x_clear_flag1(
     return status;
 }
 
+sh36730x_status_t sh36730x_get_flag1(
+    sh36730x_t *device,
+    uint8_t *flag1)
+{
+    if (device == NULL || !device->initialized || flag1 == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_FLAG1, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    *flag1 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val) & SH36730X_FLAG1_ALL_FLAGS_MASK;
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_get_flag2(
+    sh36730x_t *device,
+    uint8_t *flag2)
+{
+    if (device == NULL || !device->initialized || flag2 == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_FLAG2, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    *flag2 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val) & SH36730X_FLAG2_ALL_FLAGS_MASK;
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_get_reset_flag(
+    sh36730x_t *device,
+    bool *reset_occurred)
+{
+    if (device == NULL || !device->initialized || reset_occurred == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t flag2 = 0;
+    sh36730x_status_t status = sh36730x_get_flag2(device, &flag2);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    *reset_occurred = (SH36730X_READ_FIELD(flag2, SH36730X_FLAG2_RST_MASK, SH36730X_FLAG2_RST_POS) != 0U);
+    return SH36730X_OK;
+}
+
 sh36730x_status_t sh36730x_set_ov_voltage(
     sh36730x_t *device,
     float voltage)
@@ -1166,8 +1229,287 @@ sh36730x_status_t sh36730x_get_load_status(
     return SH36730X_OK;
 }
 
+sh36730x_status_t sh36730x_enable_ctld(
+    sh36730x_t *device,
+    bool enable)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
 
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF1_CTLD_EN_MASK, SH36730X_SCONF1_CTLD_EN_POS, enable ? 1 : 0);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF1_CTLD_EN_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
 
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF1,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_set_chs_threshold(
+    sh36730x_t *device,
+    sh36730x_chs_threshold_t threshold)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF7_CHS_MASK, SH36730X_SCONF7_CHS_POS, threshold);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF7_CHS_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF7,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_get_chs_threshold(
+    sh36730x_t *device,
+    sh36730x_chs_threshold_t *threshold)
+{
+    if (device == NULL || !device->initialized || threshold == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF7, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf7 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *threshold = (sh36730x_chs_threshold_t)SH36730X_READ_FIELD(
+        sconf7, SH36730X_SCONF7_CHS_MASK, SH36730X_SCONF7_CHS_POS);
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_get_charging_status(
+    sh36730x_t *device,
+    bool *is_charging)
+{
+    if (device == NULL || !device->initialized || is_charging == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_BSTATUS, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t bstatus = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *is_charging = (SH36730X_READ_FIELD(bstatus, SH36730X_BSTATUS_CHGING_MASK, SH36730X_BSTATUS_CHGING_POS) != 0U);
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_get_discharging_status(
+    sh36730x_t *device,
+    bool *is_discharging)
+{
+    if (device == NULL || !device->initialized || is_discharging == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_BSTATUS, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t bstatus = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *is_discharging = (SH36730X_READ_FIELD(bstatus, SH36730X_BSTATUS_DSGING_MASK, SH36730X_BSTATUS_DSGING_POS) != 0U);
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_set_interrupt_enable(
+    sh36730x_t *device,
+    uint8_t int_mask)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_INT_EN_ALL_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(int_mask & SH36730X_INT_EN_ALL_MASK);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_INT_EN,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_get_interrupt_enable(
+    sh36730x_t *device,
+    uint8_t *int_mask)
+{
+    if (device == NULL || !device->initialized || int_mask == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_INT_EN, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t int_en = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *int_mask = int_en & SH36730X_INT_EN_ALL_MASK;
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_enable_wdt(
+    sh36730x_t *device,
+    bool enable)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF1_WDT_EN_MASK, SH36730X_SCONF1_WDT_EN_POS, enable ? 1 : 0);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF1_WDT_EN_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF1,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_set_wdt_period(
+    sh36730x_t *device,
+    sh36730x_wdtt_period_t period)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF7_WDTT_MASK, SH36730X_SCONF7_WDTT_POS, period);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF7_WDTT_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF7,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_get_wdt_period(
+    sh36730x_t *device,
+    sh36730x_wdtt_period_t *period)
+{
+    if (device == NULL || !device->initialized || period == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF7, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf7 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *period = (sh36730x_wdtt_period_t)SH36730X_READ_FIELD(
+        sconf7, SH36730X_SCONF7_WDTT_MASK, SH36730X_SCONF7_WDTT_POS);
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_set_rst_pulse_width(
+    sh36730x_t *device,
+    sh36730x_rst_pulse_t pulse)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF6_RST_MASK, SH36730X_SCONF6_RST_POS, pulse);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF6_RST_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF6,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_get_rst_pulse_width(
+    sh36730x_t *device,
+    sh36730x_rst_pulse_t *pulse)
+{
+    if (device == NULL || !device->initialized || pulse == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF6, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf6 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *pulse = (sh36730x_rst_pulse_t)SH36730X_READ_FIELD(
+        sconf6, SH36730X_SCONF6_RST_MASK, SH36730X_SCONF6_RST_POS);
+
+    return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_set_alarm_mode(
+    sh36730x_t *device,
+    sh36730x_alarm_mode_t mode)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint8_t sconf_val = 0;
+    SH36730X_MODIFY_FIELD(sconf_val, SH36730X_SCONF2_ALARM_C_MASK, SH36730X_SCONF2_ALARM_C_POS, mode);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF2_ALARM_C_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF2,
+        mask_16,
+        val_16);
+}
+
+sh36730x_status_t sh36730x_get_alarm_mode(
+    sh36730x_t *device,
+    sh36730x_alarm_mode_t *mode)
+{
+    if (device == NULL || !device->initialized || mode == NULL) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    uint16_t reg_val = 0;
+    sh36730x_status_t status = sh36730x_read_register(device, SH36730X_REG_SCONF2, &reg_val);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    uint8_t sconf2 = SH36730X_EXTRACT_HIGH_BYTE_8(reg_val);
+    *mode = (sh36730x_alarm_mode_t)SH36730X_READ_FIELD(
+        sconf2, SH36730X_SCONF2_ALARM_C_MASK, SH36730X_SCONF2_ALARM_C_POS);
+
+    return SH36730X_OK;
+}
 
 sh36730x_status_t sh36730x_set_balancing(
     sh36730x_t *device,
@@ -1236,5 +1578,34 @@ sh36730x_status_t sh36730x_get_balancing(
 
     *mask_10bit = (uint16_t)(((uint16_t)(sconf4 & 0x1FU) << 5U) | (uint16_t)(sconf5 & 0x1FU));
     return SH36730X_OK;
+}
+
+sh36730x_status_t sh36730x_enter_power_down(
+    sh36730x_t *device)
+{
+    if (device == NULL || !device->initialized) {
+        return SH36730X_ERROR_PARAM;
+    }
+
+    /* 1. Step 1: Write PIN[7:0] = 0x33 to SCONF10 (0x0D) to authorize Power-Down */
+    sh36730x_status_t status = sh36730x_write_register(
+        device,
+        SH36730X_REG_SCONF10,
+        SH36730X_POWER_DOWN_KEY);
+    if (status != SH36730X_OK) {
+        return status;
+    }
+
+    /* 2. Step 2: Sequentially write PD_EN = 1 to SCONF1 (0x04) without intervening commands */
+    uint8_t sconf1_val = 0;
+    SH36730X_MODIFY_FIELD(sconf1_val, SH36730X_SCONF1_PD_EN_MASK, SH36730X_SCONF1_PD_EN_POS, 1);
+    uint16_t mask_16 = SH36730X_HIGH_BYTE_16(SH36730X_SCONF1_PD_EN_MASK);
+    uint16_t val_16  = SH36730X_HIGH_BYTE_16(sconf1_val);
+
+    return sh36730x_update_registers(
+        device,
+        SH36730X_REG_SCONF1,
+        mask_16,
+        val_16);
 }
 

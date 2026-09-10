@@ -105,7 +105,6 @@
  static int mock_i2c_write(void *context, uint8_t address_7bit, const uint8_t *data, size_t size)
  {
 	 (void)context;
-	 (void)address_7bit;
  
 	 if (g_mock_afe.inject_comm_error) {
 		 return -1;
@@ -119,8 +118,12 @@
 	 uint8_t reg_val  = data[1];
 	 uint8_t crc_val  = data[2];
  
-	 /* Verify CRC of incoming write packet */
-	 uint8_t expected_crc = mock_calc_crc8(data, 2);
+	 /* Verify CRC of incoming write packet: [SlaveAddr_W, RegAddr, RegVal] */
+	 uint8_t crc_stream[3];
+	 crc_stream[0] = (uint8_t)(address_7bit << 1);
+	 crc_stream[1] = reg_addr;
+	 crc_stream[2] = reg_val;
+	 uint8_t expected_crc = mock_calc_crc8(crc_stream, 3);
 	 if (crc_val != expected_crc) {
 		 return -2; /* CRC error */
 	 }
@@ -140,7 +143,6 @@
 								uint8_t *rx_data, size_t rx_size)
  {
 	 (void)context;
-	 (void)address_7bit;
  
 	 if (g_mock_afe.inject_comm_error) {
 		 return -1;
@@ -151,16 +153,22 @@
 	 }
  
 	 uint8_t reg_addr = tx_data[0];
-	 if (reg_addr >= SH36730X_MOCK_REG_SIZE) {
+	 if (reg_addr > SH36730X_REG_END_ADDR) {
 		 return -1;
 	 }
  
 	 /* 16-bit Read: Returns reg[reg_addr] and reg[reg_addr + 1] */
 	 rx_data[0] = g_mock_afe.regs[reg_addr];
-	 rx_data[1] = (reg_addr + 1 < SH36730X_MOCK_REG_SIZE) ? g_mock_afe.regs[reg_addr + 1] : 0x00;
+	 rx_data[1] = (reg_addr + 1 <= SH36730X_REG_END_ADDR) ? g_mock_afe.regs[reg_addr + 1] : 0xFF;
  
-	 /* Calculate CRC8 for received 2 bytes */
-	 uint8_t crc = mock_calc_crc8(rx_data, 2);
+	 /* Calculate CRC8 for received data: [SlaveAddr_W, RegAddr, SlaveAddr_R, Data1, Data2] */
+	 uint8_t crc_stream[5];
+	 crc_stream[0] = (uint8_t)(address_7bit << 1);
+	 crc_stream[1] = reg_addr;
+	 crc_stream[2] = (uint8_t)((address_7bit << 1) | 0x01);
+	 crc_stream[3] = rx_data[0];
+	 crc_stream[4] = rx_data[1];
+	 uint8_t crc = mock_calc_crc8(crc_stream, 5);
 	 if (g_mock_afe.inject_crc_error) {
 		 crc ^= 0xFF; /* Corrupt the CRC for test verification */
 	 }
@@ -646,6 +654,268 @@ static void ut_suite_09_charger_and_load_detection(void)
 		g_ut_stats.failed_suites++;
 	}
 }
+
+/**
+ * @brief Suite 10: Extended Control & Status (CTLD, CHS, CHGING/DSGING, INT_EN, WDT, RST, ALARM)
+ */
+static void ut_suite_10_extended_control_and_status(void)
+{
+	UT_PRINTF(UT_COLOR_SUITE "Running Suite 10: Extended Control & Status Features...\r\n");
+	g_current_suite_passed = true;
+
+	sh36730x_t dev;
+	sh36730x_ut_setup_mock_device(&dev, SH36730X_CHIP_SH367309);
+
+	/* 1. CTLD Enable/Disable (SCONF1[6]) */
+	UT_ASSERT_STATUS(sh36730x_enable_ctld(&dev, true), SH36730X_OK, "enable_ctld(true)");
+	UT_ASSERT_TRUE((g_mock_afe.regs[SH36730X_REG_SCONF1] & SH36730X_SCONF1_CTLD_EN_MASK) != 0, "CTLD_EN bit set");
+
+	UT_ASSERT_STATUS(sh36730x_enable_ctld(&dev, false), SH36730X_OK, "enable_ctld(false)");
+	UT_ASSERT_TRUE((g_mock_afe.regs[SH36730X_REG_SCONF1] & SH36730X_SCONF1_CTLD_EN_MASK) == 0, "CTLD_EN bit cleared");
+
+	/* 2. CHS Threshold Set & Get (SCONF7[3:2]) */
+	UT_ASSERT_STATUS(sh36730x_set_chs_threshold(&dev, SH36730X_CHS_12_0MV), SH36730X_OK, "set_chs_threshold(12mV)");
+	sh36730x_chs_threshold_t chs = SH36730X_CHS_1_4MV;
+	UT_ASSERT_STATUS(sh36730x_get_chs_threshold(&dev, &chs), SH36730X_OK, "get_chs_threshold");
+	UT_ASSERT_EQ(chs, SH36730X_CHS_12_0MV, "CHS threshold match");
+
+	/* 3. Real-time Charging & Discharging Status (BSTATUS[2], BSTATUS[3]) */
+	bool is_chg = false;
+	bool is_dsg = false;
+	g_mock_afe.regs[SH36730X_REG_BSTATUS] = SH36730X_BSTATUS_CHGING_MASK;
+	UT_ASSERT_STATUS(sh36730x_get_charging_status(&dev, &is_chg), SH36730X_OK, "get_charging_status");
+	UT_ASSERT_STATUS(sh36730x_get_discharging_status(&dev, &is_dsg), SH36730X_OK, "get_discharging_status");
+	UT_ASSERT_TRUE(is_chg, "Charging status reported as true");
+	UT_ASSERT_TRUE(!is_dsg, "Discharging status reported as false");
+
+	g_mock_afe.regs[SH36730X_REG_BSTATUS] = SH36730X_BSTATUS_DSGING_MASK;
+	UT_ASSERT_STATUS(sh36730x_get_charging_status(&dev, &is_chg), SH36730X_OK, "get_charging_status");
+	UT_ASSERT_STATUS(sh36730x_get_discharging_status(&dev, &is_dsg), SH36730X_OK, "get_discharging_status");
+	UT_ASSERT_TRUE(!is_chg, "Charging status reported as false");
+	UT_ASSERT_TRUE(is_dsg, "Discharging status reported as true");
+
+	/* 4. INT_EN Interrupt Enable Mask Set & Get (0x03) */
+	uint8_t int_mask = SH36730X_INT_EN_CD_INT_MASK | SH36730X_INT_EN_OV_INT_MASK | SH36730X_INT_EN_SC_INT_MASK;
+	UT_ASSERT_STATUS(sh36730x_set_interrupt_enable(&dev, int_mask), SH36730X_OK, "set_interrupt_enable");
+	uint8_t read_int_mask = 0;
+	UT_ASSERT_STATUS(sh36730x_get_interrupt_enable(&dev, &read_int_mask), SH36730X_OK, "get_interrupt_enable");
+	UT_ASSERT_EQ(read_int_mask, int_mask, "INT_EN register mask match");
+
+	/* 5. WDT Enable & Period Set/Get (SCONF1[4], SCONF7[1:0]) */
+	UT_ASSERT_STATUS(sh36730x_enable_wdt(&dev, true), SH36730X_OK, "enable_wdt(true)");
+	UT_ASSERT_TRUE((g_mock_afe.regs[SH36730X_REG_SCONF1] & SH36730X_SCONF1_WDT_EN_MASK) != 0, "WDT_EN bit set");
+
+	UT_ASSERT_STATUS(sh36730x_set_wdt_period(&dev, SH36730X_WDTT_500MS), SH36730X_OK, "set_wdt_period(500ms)");
+	sh36730x_wdtt_period_t wdtt = SH36730X_WDTT_30S;
+	UT_ASSERT_STATUS(sh36730x_get_wdt_period(&dev, &wdtt), SH36730X_OK, "get_wdt_period");
+	UT_ASSERT_EQ(wdtt, SH36730X_WDTT_500MS, "WDT period match");
+
+	/* 6. RST Pulse Width Set/Get (SCONF6[5:4]) */
+	UT_ASSERT_STATUS(sh36730x_set_rst_pulse_width(&dev, SH36730X_RST_1S), SH36730X_OK, "set_rst_pulse_width(1s)");
+	sh36730x_rst_pulse_t rst_p = SH36730X_RST_16MS;
+	UT_ASSERT_STATUS(sh36730x_get_rst_pulse_width(&dev, &rst_p), SH36730X_OK, "get_rst_pulse_width");
+	UT_ASSERT_EQ(rst_p, SH36730X_RST_1S, "RST pulse width match");
+
+	/* 7. ALARM Mode Set/Get (SCONF2[2]) */
+	UT_ASSERT_STATUS(sh36730x_set_alarm_mode(&dev, SH36730X_ALARM_LEVEL), SH36730X_OK, "set_alarm_mode(LEVEL)");
+	sh36730x_alarm_mode_t alm = SH36730X_ALARM_PULSE;
+	UT_ASSERT_STATUS(sh36730x_get_alarm_mode(&dev, &alm), SH36730X_OK, "get_alarm_mode");
+	UT_ASSERT_EQ(alm, SH36730X_ALARM_LEVEL, "ALARM mode match");
+
+	/* 8. System Flags (FLAG1, FLAG2) and V33 Reset Flag (Section 7.15) */
+	g_mock_afe.regs[SH36730X_REG_FLAG1] = SH36730X_FLAG1_SC_MASK | SH36730X_FLAG1_WDT_MASK;
+	uint8_t read_flag1 = 0;
+	UT_ASSERT_STATUS(sh36730x_get_flag1(&dev, &read_flag1), SH36730X_OK, "get_flag1");
+	UT_ASSERT_EQ(read_flag1, (SH36730X_FLAG1_SC_MASK | SH36730X_FLAG1_WDT_MASK), "FLAG1 bits match");
+
+	g_mock_afe.regs[SH36730X_REG_FLAG2] = SH36730X_FLAG2_RST_MASK | SH36730X_FLAG2_CADC_MASK;
+	uint8_t read_flag2 = 0;
+	UT_ASSERT_STATUS(sh36730x_get_flag2(&dev, &read_flag2), SH36730X_OK, "get_flag2");
+	UT_ASSERT_EQ(read_flag2, (SH36730X_FLAG2_RST_MASK | SH36730X_FLAG2_CADC_MASK), "FLAG2 bits match");
+
+	bool rst_flag = false;
+	g_mock_afe.regs[SH36730X_REG_FLAG2] = SH36730X_FLAG2_RST_MASK;
+	UT_ASSERT_STATUS(sh36730x_get_reset_flag(&dev, &rst_flag), SH36730X_OK, "get_reset_flag(true)");
+	UT_ASSERT_TRUE(rst_flag, "Reset flag reported as true");
+
+	g_mock_afe.regs[SH36730X_REG_FLAG2] = 0x00;
+	UT_ASSERT_STATUS(sh36730x_get_reset_flag(&dev, &rst_flag), SH36730X_OK, "get_reset_flag(false)");
+	UT_ASSERT_TRUE(!rst_flag, "Reset flag reported as false");
+
+	if (g_current_suite_passed) {
+		g_ut_stats.passed_suites++;
+		UT_PRINTF(UT_COLOR_PASS "Suite 10 passed.\r\n");
+	} else {
+		g_ut_stats.failed_suites++;
+	}
+}
+
+/**
+ * @brief Suite 11: Power-Down Low-Power Mode Sequencing
+ */
+static void ut_suite_11_powerdown_mode(void)
+{
+	UT_PRINTF(UT_COLOR_SUITE "Running Suite 11: Power-Down Mode Sequencing...\r\n");
+	g_current_suite_passed = true;
+
+	sh36730x_t dev;
+	sh36730x_ut_setup_mock_device(&dev, SH36730X_CHIP_SH367309);
+
+	UT_ASSERT_STATUS(sh36730x_enter_power_down(&dev), SH36730X_OK, "sh36730x_enter_power_down");
+	UT_ASSERT_EQ(g_mock_afe.regs[SH36730X_REG_SCONF10], SH36730X_POWER_DOWN_KEY, "SCONF10 key 0x33 written");
+	UT_ASSERT_TRUE((g_mock_afe.regs[SH36730X_REG_SCONF1] & SH36730X_SCONF1_PD_EN_MASK) != 0, "SCONF1 PD_EN bit set");
+
+	if (g_current_suite_passed) {
+		g_ut_stats.passed_suites++;
+		UT_PRINTF(UT_COLOR_PASS "Suite 11 passed.\r\n");
+	} else {
+		g_ut_stats.failed_suites++;
+	}
+}
+
+/**
+ * @brief Suite 12: Getter-Setter Symmetry Verification
+ */
+static void ut_suite_12_getter_setter_symmetry(void)
+{
+	UT_PRINTF(UT_COLOR_SUITE "Running Suite 12: Getter-Setter Symmetry Verification...\r\n");
+	g_current_suite_passed = true;
+
+	sh36730x_t dev;
+	sh36730x_ut_setup_mock_device(&dev, SH36730X_CHIP_SH367309);
+
+	/* 1. VADC Scan Period */
+	sh36730x_vadc_scan_period_t scan_p;
+	sh36730x_vadc_set_scan_period(&dev, SH36730X_VADC_SCAN_100MS);
+	sh36730x_vadc_get_scan_period(&dev, &scan_p);
+	UT_ASSERT_EQ(scan_p, SH36730X_VADC_SCAN_100MS, "VADC scan period 100ms symmetry");
+
+	sh36730x_vadc_set_scan_period(&dev, SH36730X_VADC_SCAN_4S);
+	sh36730x_vadc_get_scan_period(&dev, &scan_p);
+	UT_ASSERT_EQ(scan_p, SH36730X_VADC_SCAN_4S, "VADC scan period 4s symmetry");
+
+	/* 2. VADC Mode */
+	sh36730x_vadc_mode_t vmode;
+	sh36730x_vadc_set_mode(&dev, SH36730X_VADC_MODE_VOLT_AND_TEMP);
+	sh36730x_vadc_get_mode(&dev, &vmode);
+	UT_ASSERT_EQ(vmode, SH36730X_VADC_MODE_VOLT_AND_TEMP, "VADC mode volt+temp symmetry");
+
+	/* 3. CADC RSNS Range */
+	sh36730x_cadc_rsns_t rsns;
+	sh36730x_cadc_set_rsns(&dev, SH36730X_CADC_RSNS_200MV);
+	sh36730x_cadc_get_rsns(&dev, &rsns);
+	UT_ASSERT_EQ(rsns, SH36730X_CADC_RSNS_200MV, "CADC RSNS 200mV symmetry");
+
+	/* 4. CADC Resolution */
+	sh36730x_cbti_c_t cbt;
+	sh36730x_cadc_set_cbti_c(&dev, SH36730X_CBTI_C_10BIT);
+	sh36730x_cadc_get_cbti_c(&dev, &cbt);
+	UT_ASSERT_EQ(cbt, SH36730X_CBTI_C_10BIT, "CADC resolution 10-bit symmetry");
+
+	/* 5. CADC Mode */
+	sh36730x_cadc_mode_t cmode;
+	sh36730x_cadc_set_mode(&dev, SH36730X_CADC_M_SINGLE);
+	sh36730x_cadc_get_mode(&dev, &cmode);
+	UT_ASSERT_EQ(cmode, SH36730X_CADC_M_SINGLE, "CADC mode single symmetry");
+
+	/* 6. Over-Voltage Threshold Voltage */
+	float ov_v = 0.0f;
+	sh36730x_set_ov_voltage(&dev, 4150.0f);
+	sh36730x_get_ov_voltage(&dev, &ov_v);
+	UT_ASSERT_FLOAT_NEAR(ov_v, 4150.0f, 6.0f, "OV Voltage 4150mV symmetry");
+
+	/* 7. Over-Voltage Delay */
+	sh36730x_ov_delay_t ov_d;
+	sh36730x_set_ov_delay(&dev, SH36730X_OV_DELAY_32CYCLE);
+	sh36730x_get_ov_delay(&dev, &ov_d);
+	UT_ASSERT_EQ(ov_d, SH36730X_OV_DELAY_32CYCLE, "OV Delay 32 cycles symmetry");
+
+	/* 8. RESET/PF Selection */
+	sh36730x_reset_pf_t rpf;
+	sh36730x_set_resetpf(&dev, SH36730X_SCONF2_RESET);
+	sh36730x_get_resetpf(&dev, &rpf);
+	UT_ASSERT_EQ(rpf, SH36730X_SCONF2_RESET, "RESET/PF reset mode symmetry");
+
+	/* 9. SCV Threshold */
+	sh36730x_scv_t scv_val;
+	sh36730x_set_scv(&dev, SH36730X_SCV_100MV);
+	sh36730x_get_scv(&dev, &scv_val);
+	UT_ASSERT_EQ(scv_val, SH36730X_SCV_100MV, "SCV threshold 100mV symmetry");
+
+	/* 10. SCT Delay */
+	sh36730x_sct_t sct_val;
+	sh36730x_set_sct(&dev, SH36730X_SCT_500US);
+	sh36730x_get_sct(&dev, &sct_val);
+	UT_ASSERT_EQ(sct_val, SH36730X_SCT_500US, "SCT delay 500us symmetry");
+
+	/* 11. Balancing Mask */
+	uint16_t bal_mask = 0;
+	sh36730x_set_balancing(&dev, 0x03FF, SH36730X_BALANCE_ODD);
+	sh36730x_get_balancing(&dev, &bal_mask);
+	UT_ASSERT_EQ(bal_mask, 0x0155, "Balancing ODD active mask symmetry");
+
+	if (g_current_suite_passed) {
+		g_ut_stats.passed_suites++;
+		UT_PRINTF(UT_COLOR_PASS "Suite 12 passed.\r\n");
+	} else {
+		g_ut_stats.failed_suites++;
+	}
+}
+
+/**
+ * @brief Suite 13: Odd vs Even Start Address Double-Byte Read Consistency Test
+ */
+static void ut_suite_13_odd_even_address_read_consistency(void)
+{
+	UT_PRINTF(UT_COLOR_SUITE "Running Suite 13: Odd vs Even Start Address 2-Byte Read Consistency...\r\n");
+	g_current_suite_passed = true;
+
+	sh36730x_t dev;
+	sh36730x_ut_setup_mock_device(&dev, SH36730X_CHIP_SH367309);
+
+	/* Set distinctive mock register values */
+	g_mock_afe.regs[0x06] = 0x12; /* SCONF3 */
+	g_mock_afe.regs[0x07] = 0x34; /* SCONF4 */
+	g_mock_afe.regs[0x08] = 0x56; /* SCONF5 */
+	g_mock_afe.regs[0x09] = 0x78; /* SCONF6 */
+	g_mock_afe.regs[0x2A] = 0xAA; /* CURH */
+	g_mock_afe.regs[0x2B] = 0xBB; /* CURL */
+
+	/* 1. Even address read at 0x06 */
+	uint16_t pair_06 = 0;
+	UT_ASSERT_STATUS(sh36730x_read_register(&dev, 0x06, &pair_06), SH36730X_OK, "read_register(0x06 Even)");
+	UT_ASSERT_EQ(pair_06, 0x1234, "Even address 0x06 returns [0x12, 0x34]");
+
+	/* 2. Odd address read at 0x07 */
+	uint16_t pair_07 = 0;
+	UT_ASSERT_STATUS(sh36730x_read_register(&dev, 0x07, &pair_07), SH36730X_OK, "read_register(0x07 Odd)");
+	UT_ASSERT_EQ(pair_07, 0x3456, "Odd address 0x07 returns [0x34, 0x56]");
+
+	/* 3. Even address read at 0x08 */
+	uint16_t pair_08 = 0;
+	UT_ASSERT_STATUS(sh36730x_read_register(&dev, 0x08, &pair_08), SH36730X_OK, "read_register(0x08 Even)");
+	UT_ASSERT_EQ(pair_08, 0x5678, "Even address 0x08 returns [0x56, 0x78]");
+
+	/* Cross-consistency: Overlap matches */
+	UT_ASSERT_EQ((uint8_t)(pair_06 & 0xFF), (uint8_t)(pair_07 >> 8), "Low(0x06) == High(0x07) (both SCONF4)");
+	UT_ASSERT_EQ((uint8_t)(pair_07 & 0xFF), (uint8_t)(pair_08 >> 8), "Low(0x07) == High(0x08) (both SCONF5)");
+
+	/* 4. Boundary read at 0x2A (CURH/L) and 0x2B (CURL/0xFF) */
+	uint16_t pair_2a = 0;
+	uint16_t pair_2b = 0;
+	UT_ASSERT_STATUS(sh36730x_read_register(&dev, 0x2A, &pair_2a), SH36730X_OK, "read_register(0x2A)");
+	UT_ASSERT_STATUS(sh36730x_read_register(&dev, 0x2B, &pair_2b), SH36730X_OK, "read_register(0x2B Boundary)");
+	UT_ASSERT_EQ(pair_2a, 0xAABB, "Read 0x2A returns [0xAA, 0xBB]");
+	UT_ASSERT_EQ((uint8_t)(pair_2b >> 8), 0xBB, "Read 0x2B High byte returns 0xBB (CURL)");
+	UT_ASSERT_EQ((uint8_t)(pair_2b & 0xFF), 0xFF, "Read 0x2B Low byte returns 0xFF (Out of boundary)");
+
+	if (g_current_suite_passed) {
+		g_ut_stats.passed_suites++;
+		UT_PRINTF(UT_COLOR_PASS "Suite 13 passed.\r\n");
+	} else {
+		g_ut_stats.failed_suites++;
+	}
+}
  
  /* ========================================================================== */
  /* Complete Test Runner Entry Point                                           */
@@ -654,7 +924,7 @@ static void ut_suite_09_charger_and_load_detection(void)
  bool sh36730x_unittest_run_all(void)
  {
 	 memset(&g_ut_stats, 0, sizeof(g_ut_stats));
-	 g_ut_stats.total_suites = 9;
+	 g_ut_stats.total_suites = 13;
  
 	 UT_PRINTF("\r\n============================================================\r\n");
 	 UT_PRINTF("   SH36730X In-Memory Safe Unit Test Suite Starting         \r\n");
@@ -669,6 +939,10 @@ static void ut_suite_09_charger_and_load_detection(void)
 	 ut_suite_07_protection_settings();
 	 ut_suite_08_cell_balancing();
 	 ut_suite_09_charger_and_load_detection();
+	 ut_suite_10_extended_control_and_status();
+	 ut_suite_11_powerdown_mode();
+	 ut_suite_12_getter_setter_symmetry();
+	 ut_suite_13_odd_even_address_read_consistency();
  
 	 UT_PRINTF("\r\n============================================================\r\n");
 	 UT_PRINTF("                 UNIT TEST SUMMARY REPORT                   \r\n");

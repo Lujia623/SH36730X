@@ -716,17 +716,24 @@ extern "C" {
 #define SH36730X_VADC_VREF_UV                 6000000UL
 
 /**
- * @brief  Convert 12-bit cell voltage ADC raw value to millivolts (mV).
- * @note   Formula: $V_{\text{cell}}\text{ (mV)} = \frac{\text{CELL} \times 6000}{4096}$
+ * @brief  Convert 12-bit cell voltage ADC raw value to millivolts (mV) with rounding.
+ * @note   Formula: $V_{\text{cell}}\text{ (mV)} = \text{round}\left(\frac{\text{CELL} \times 6000}{4096}\right) = \frac{\text{CELL} \times 6000 + 2048}{4096}$
  */
 #define SH36730X_RAW_TO_CELL_VOLTAGE_MV(raw_adc) \
-        ((uint32_t)(((uint64_t)(raw_adc) * 6000ULL) / 4096ULL))
+        ((uint32_t)(((uint64_t)(raw_adc) * 6000ULL + 2048ULL) / 4096ULL))
+
+/**
+ * @brief  Convert 12-bit cell voltage ADC raw value to millivolts (mV) as float.
+ * @note   Formula: $V_{\text{cell}}\text{ (mV)} = \frac{\text{CELL} \times 6000}{4096}$
+ */
+#define SH36730X_RAW_TO_CELL_VOLTAGE_FLOAT_MV(raw_adc) \
+        (((float)(raw_adc) * 6000.0f) / 4096.0f)
 
 /**
  * @brief  Convert 12-bit cell voltage ADC raw value to microvolts (uV).
  */
 #define SH36730X_RAW_TO_CELL_VOLTAGE_UV(raw_adc) \
-        ((uint32_t)(((uint64_t)(raw_adc) * 6000000ULL) / 4096ULL))
+        ((uint32_t)(((uint64_t)(raw_adc) * 6000000ULL + 2048ULL) / 4096ULL))
 
 /**
  * @brief  Hardware Over-Charge protection step size: 5.86 mV/LSB (5860 uV).
