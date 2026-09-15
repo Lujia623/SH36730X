@@ -11,6 +11,7 @@
  #include <stdlib.h>
  #include <math.h>
  #include <rtthread.h>
+ #include "ntc_mf52a.h"
  
  #ifdef RT_USING_FINSH
  #include <stdio.h>
@@ -417,23 +418,44 @@
 	 }
  
 	 /* Configure VADC for Volt & Temp mode */
+	 sh36730x_vadc_enable(&ctx->device, true);
 	 sh36730x_vadc_set_mode(&ctx->device, SH36730X_VADC_MODE_VOLT_AND_TEMP);
 	 bsp_sh36730x_delay_ms(NULL, 100);
  
 	 /* Read TS1 and TS2 external NTC resistance */
 	 uint32_t ts1_kohm = 0;
 	 uint32_t ts2_kohm = 0;
+	 float ts1_temp = 0.0f;
+	 float ts2_temp = 0.0f;
 	 sh36730x_status_t st_ts1 = sh36730x_get_temp_ts(&ctx->device, SH36730X_TS1, &ts1_kohm);
 	 sh36730x_status_t st_ts2 = sh36730x_get_temp_ts(&ctx->device, SH36730X_TS2, &ts2_kohm);
+	 bool _ts1 = ntc_mf52a_ohm_to_temp_c(ts1_kohm, &ts1_temp);
+	 bool _ts2 = ntc_mf52a_ohm_to_temp_c(ts2_kohm, &ts2_temp);
  
 	 if (st_ts1 == SH36730X_OK) {
 		 TEST_LOG_INFO("External TS1 Resistance: %u Ohm (%u kOhm)", ts1_kohm, ts1_kohm / 1000);
+		 if (_ts1) {
+			 int t1_int = (int)ts1_temp;
+			 int t1_dec = (int)(fabsf(ts1_temp - (float)t1_int) * 100.0f + 0.5f);
+			 const char *t1_neg = (ts1_temp < 0.0f && t1_int == 0) ? "-" : "";
+			 TEST_PRINTF(TEST_TAG_INFO "External TS1 Temp 1: %s%d.%02d deg C\r\n", t1_neg, t1_int, t1_dec);
+		 } else {
+			TEST_PRINTF(TEST_TAG_WARN "External TS1 Temp 1 FAIL\r\n");
+		 }
 	 } else {
 		 TEST_LOG_WARN("External TS1 read returned %d", st_ts1);
 	 }
  
 	 if (st_ts2 == SH36730X_OK) {
 		 TEST_LOG_INFO("External TS2 Resistance: %u Ohm (%u kOhm)", ts2_kohm, ts2_kohm / 1000);
+		 if (_ts2) {
+			int t1_int = (int)ts2_temp;
+			int t1_dec = (int)(fabsf(ts2_temp - (float)t1_int) * 100.0f + 0.5f);
+			const char *t1_neg = (ts2_temp < 0.0f && t1_int == 0) ? "-" : "";
+			TEST_PRINTF(TEST_TAG_INFO "External TS2 Temp 2: %s%d.%02d deg C\r\n", t1_neg, t1_int, t1_dec);
+		} else {
+		   TEST_PRINTF(TEST_TAG_WARN "External TS2 Temp 2 FAIL\r\n");
+		}
 	 } else {
 		 TEST_LOG_WARN("External TS2 read returned %d", st_ts2);
 	 }

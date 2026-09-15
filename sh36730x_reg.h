@@ -1,8 +1,7 @@
 /**
  * @file    sh36730x_reg.h
  * @brief   Register and bit-field definitions for Sinowealth SH367303 / SH367305 / SH367306 AFE ICs.
- * @note    Reference Manual: 《SH36730X CV1.1A.pdf》
- *          - SH367303: 3 to 5 series lithium battery protection & monitoring AFE
+ * @note    - SH367303: 3 to 5 series lithium battery protection & monitoring AFE
  *          - SH367305: 6 to 8 series lithium battery protection & monitoring AFE
  *          - SH367306: 6 to 10 series lithium battery protection & monitoring AFE
  *          The registers and pin definitions across this series are mutually compatible.

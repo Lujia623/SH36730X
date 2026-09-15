@@ -1,3 +1,18 @@
+/**
+ * @file sh36730x.c
+ * @brief Implementation of SH36730X driver API functions.
+ * @note    - SH367303: 3 to 5 series lithium battery protection & monitoring AFE
+ *          - SH367305: 6 to 8 series lithium battery protection & monitoring AFE
+ *          - SH367306: 6 to 10 series lithium battery protection & monitoring AFE
+ *          The registers and pin definitions across this series are mutually compatible.
+ * 
+ * @version V1.0
+ * @date    2026-09-10
+ * @par Change Log:
+ * Date       Version  Author                       Description
+ * 2026-09-10  V1.0    Rougga(2839754468@qq.com)    Initial release
+ */
+
 #include "sh36730x.h"
 
 /**
